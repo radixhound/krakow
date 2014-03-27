@@ -107,9 +107,9 @@ module Krakow
     end
 
     # Receive message and return proper FrameType instance
-    def receive
+    def receive(prefetch_data = nil)
       debug 'Read wait for frame start'
-      buf = socket.recv(8)
+      buf = prefetch_data || socket.recv(8)
       if(buf)
         @receiving = true
         debug "<<< #{buf.inspect}"
@@ -196,7 +196,7 @@ module Krakow
         expected_features
       )
       socket.write(ident.to_line)
-      response = receive
+      response = receive(first_response)
       if(expected_features[:feature_negotiation])
         begin
           @endpoint_settings = MultiJson.load(response.content, :symbolize_keys => true)
@@ -217,6 +217,14 @@ module Krakow
         @endpoint_settings = {}
       end
       true
+    end
+
+    def first_response
+      prefetch_data = socket.recv(8)
+      if prefetch_data =~ /HTTP\/\d.\d/
+        fail Error.new("Not connected to an NSQ client! Check the port, default client port is 4150")
+      end
+      prefetch_data
     end
 
     def snappy
